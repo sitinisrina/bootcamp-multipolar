@@ -1,0 +1,21 @@
+datetime,amount,payment_method,description
+2026-08-01 13:09:00,"-Rp 243,000",cash,Belanja bulanan di Indomaret
+2026-08-02 14:41:00,"Rp 6,248,000",cash,Gaji bulan berjalan dari kantor
+2026-08-03 08:04:00,"-Rp 570,000",mandiri,Tagihan listrik PLN pascabayar
+2026-08-04 16:06:00,"-Rp 389,000",shopee,Langganan Indihome bulanan
+2026-08-05 13:37:00,"-Rp 27,000",cash,Kopi Kenangan - Americano
+2026-08-06 08:58:00,"Rp 624,000",mandiri,Pendapatan freelance desain logo
+2026-08-07 16:13:00,"-Rp 37,000",mandiri,Makan malam di Restoran Padang Sederhana
+2026-08-08 08:05:00,"-Rp 146,000",cash,Beli kelas online di Udemy
+2026-08-09 14:26:00,"-Rp 327,000",gopay,Iuran gym Celebrity Fitness
+2026-08-10 09:15:00,"-Rp 30,000",mandiri,Ongkos Gojek ke kantor
+2026-08-11 09:35:00,"-Rp 99,000",mandiri,Beli buku di Gramedia
+2026-08-12 14:03:00,"-Rp 86,000",mandiri,Isi pulsa Telkomsel
+2026-08-13 17:07:00,"Rp 99,000",bca,Refund pembelian di Shopee
+2026-08-14 11:40:00,"-Rp 53,000",cash,Tiket nonton di CGV Cinema
+2026-08-15 18:37:00,"Rp 2,298,000",gopay,Bonus akhir tahun dari perusahaan
+2026-08-16 08:36:00,"-Rp 80,000",shopee,Tagihan PDAM air bulanan
+2026-08-17 17:25:00,"-Rp 293,000",shopee,Belanja baju di Uniqlo
+2026-08-18 08:14:00,"-Rp 16,000",gopay,Biaya parkir mobil di mall
+2026-08-19 08:35:00,"Rp 228,000",cash,Hadiah ulang tahun dari saudara
+2026-08-20 10:18:00,"-Rp 16,000",shopee,Jajan cireng dan es teh di warung
