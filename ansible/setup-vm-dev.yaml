@@ -1,6 +1,7 @@
 ---
 - name: Ensure required tooling is installed, validated and logged in
   hosts: all
+  any_errors_fatal: true
 
   vars:
     git_repo_url: "https://github.com/ansible/ansible-examples.git"
@@ -13,6 +14,55 @@
     oc_api_url: "https://api.example.com:6443"
     oc_token: ""
     oc_cli_download_url: "https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/openshift-client-linux.tar.gz"
+
+  pre_tasks:
+    # --- Pre-validation: format input ---
+    - name: Validate git repository URL
+      ansible.builtin.assert:
+        that:
+          - git_repo_url is match('^https://.+\.git$')
+        fail_msg: "git_repo_url harus diawali https:// dan diakhiri .git (sekarang: {{ git_repo_url }})"
+        success_msg: "git_repo_url valid"
+
+    - name: Validate podman registry URL and username
+      ansible.builtin.assert:
+        that:
+          - podman_registry_url | length > 0
+          - podman_registry_url is not match('^https?://')
+          - podman_registry_username | length > 0
+        fail_msg: "podman_registry_url wajib diisi tanpa http(s):// dan podman_registry_username wajib diisi"
+        success_msg: "Registry URL dan username valid"
+
+    - name: Validate OpenShift API URL
+      ansible.builtin.assert:
+        that:
+          - oc_api_url is match('^https://.+')
+        fail_msg: "oc_api_url harus diawali https:// (sekarang: {{ oc_api_url }})"
+        success_msg: "oc_api_url valid"
+
+    - name: Validate secrets (token & password)
+      ansible.builtin.assert:
+        that:
+          - oc_token is match('^sha256~.+')
+          - podman_registry_password | length > 0
+        fail_msg: "oc_token / podman_registry_password kosong atau formatnya salah. Cek credential 'OpenShift Login' di template."
+        success_msg: "Token dan password tersedia"
+      no_log: true
+
+    # --- Pre-validation: tujuan bisa dijangkau ---
+    - name: Check git repository is reachable
+      ansible.builtin.command:
+        argv: [git, ls-remote, "{{ git_repo_url }}", HEAD]
+      delegate_to: localhost
+      run_once: true
+      changed_when: false
+
+    - name: Check OpenShift API is reachable
+      ansible.builtin.uri:
+        url: "{{ oc_api_url }}/healthz"
+        status_code: 200
+      delegate_to: localhost
+      run_once: true
 
   tasks:
 
