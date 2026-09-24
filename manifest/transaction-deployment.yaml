@@ -1,23 +1,31 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: my-container
+  name: transaction-container
   labels:
-    app: my-container
+    app: transaction-container
 spec:
-  replicas: 5
+  replicas: 2
   selector:
     matchLabels:
-      app: my-container
+      app: transaction-container
   template:
     metadata:
       labels:
-        app: my-container
+        app: transaction-container
     spec:
       containers:
-        - name: my-container
-          image: default-route-openshift-image-registry.apps.rm3.7wse.p1.openshiftapps.com/tobias-aditya-dev/my-image:1.0.0
+        - name: transaction-container
+          image: default-route-openshift-image-registry.apps.rm1.0a51.p1.openshiftapps.com/stnisrinasalsabila-dev/transaction-app:1.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
               protocol: TCP
+          envFrom:
+            - secretRef:
+                name: mongo-credentials
+          env:
+            - name: MONGO_COLLECTION
+              value: "trx_collection2"
+            - name: PROFILING_URL
+              value: "http://profiling-container:8001"

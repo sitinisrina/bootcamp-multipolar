@@ -1,15 +1,13 @@
 import os
+from datetime import datetime, date as DateType
+from enum import Enum
+
 import httpx
-
-PROFILING_URL = os.environ.get("PROFILING_URL", "http://localhost:8001")
-
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from datetime import datetime, date as DateType
 from beanie import Document, init_beanie, PydanticObjectId
 from pymongo import AsyncMongoClient
-from enum import Enum
 
 load_dotenv()
 
@@ -18,6 +16,7 @@ MONGO_PASSWORD = os.environ["MONGO_PASSWORD"]
 MONGO_HOST = os.environ["MONGO_HOST"]
 MONGO_URI = f"mongodb+srv://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_HOST}/?appName=Cluster1"
 MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "bootcamp")
+PROFILING_URL = os.environ.get("PROFILING_URL", "http://localhost:8001")
 
 app = FastAPI()
 
@@ -45,9 +44,8 @@ class Transaction(Document):
     method: PaymentMethod
     desc: str
     trx_type: TrxType
-
-class Settings:
-    name = os.environ["MONGO_COLLECTION"]
+    class Settings:
+        name = os.environ["MONGO_COLLECTION"]
 
 class RequestNewTransaction(BaseModel):
     amount: int = Field(gt=0)
@@ -78,20 +76,39 @@ class RequestEditTransaction(BaseModel):
             raise ValueError("Tanggal tidak boleh di masa depan")
         return v
 
-async def check_spending_alert(trx: Transaction) -> dict | None:
-    if trx.trx_type != TrxType.OUTCOME:
-        return None
+async def get_profiling(year: int, month: int) -> dict:
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             response = await client.get(
                 f"{PROFILING_URL}/profiling/summary",
-                params={"year": trx.date.year, "month": trx.date.month},
+                params={"year": year, "month": month},
             )
             response.raise_for_status()
-            return response.json()
+            result = response.json()
     except httpx.HTTPError:
-        # Profiling mati/error -> transaksi tetap tersimpan
-        return {"available": False, "message": "Profiling service sedang tidak tersedia"}
+        # Profiling mati/error -> endpoint transaksi tetap jalan
+        return {"message": "Profiling service sedang tidak tersedia"}
+
+    # Data belum cukup 3 bulan -> belum ada batas pengeluaran
+    if not result.get("available"):
+        return {"message": result["message"]}
+
+    spending_limit = result["moving_avg"]
+    current_total = result["current_total"]
+
+    return {
+        "spending_limit": spending_limit,
+        "current_total": current_total,
+        "remaining": max(spending_limit - current_total, 0),
+        "over_limit": result["over_limit"],
+        "message": result["message"],
+    }
+
+async def check_spending_alert(trx: Transaction) -> dict | None:
+    if trx.trx_type != TrxType.OUTCOME:
+        return None
+    return await get_profiling(trx.date.year, trx.date.month)
+
 
 from category import classify_spending
 from import_data import read_file, import_dataframe
@@ -141,6 +158,9 @@ async def get_transaction(start_date: datetime, end_date: datetime):
 
 @app.get("/transaction/summary")
 async def summary_by_method(year: int, month: int):
+    if not 1 <= month <= 12:
+        raise HTTPException(status_code=400, detail="Bulan harus antara 1 sampai 12")
+
     start = datetime(year, month, 1)
     if month == 12:
         end = datetime(year + 1, 1, 1)
@@ -165,6 +185,7 @@ async def summary_by_method(year: int, month: int):
         "ratio": category_result["ratio"],
         "category": category_result["category"],
     }
+
 
 @app.delete("/transaction/{trx_id}")
 async def delete_transaction(trx_id: PydanticObjectId):

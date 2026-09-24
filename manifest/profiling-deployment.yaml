@@ -1,0 +1,31 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: profiling-container
+  labels:
+    app: profiling-container
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: profiling-container
+  template:
+    metadata:
+      labels:
+        app: profiling-container
+    spec:
+      containers:
+        - name: profiling-container
+          image: default-route-openshift-image-registry.apps.rm1.0a51.p1.openshiftapps.com/stnisrinasalsabila-dev/profiling-app:1.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8001
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: mongo-credentials
+          env:
+            - name: MONGO_COLLECTION
+              value: "trx_collection2"
+            - name: PROFILING_WINDOW_MONTHS
+              value: "3"
