@@ -43,9 +43,8 @@ class Transaction(Document):
     desc: str
     trx_type: TrxType
 
-    class Settings:
-        name = "trx_collection"
-
+class Settings:
+    name = os.environ["MONGO_COLLECTION"]
 
 class RequestNewTransaction(BaseModel):
     amount: int = Field(gt=0)
@@ -79,6 +78,7 @@ class RequestEditTransaction(BaseModel):
 
 from category import classify_spending
 from import_data import read_file, import_dataframe
+from profilling import profiling_summary, check_spending_alert 
 
 @app.on_event("startup")
 async def init_db():
@@ -101,7 +101,9 @@ async def add_transaction(request_body: RequestNewTransaction):
         trx_type=request_body.trx_type,
     )
     await trx.insert()
-    return trx
+    profiling = await check_spending_alert(trx)
+    return {"transaction": trx, "profiling": profiling}
+
 
 @app.post("/transaction/import")
 async def import_transaction(file: UploadFile = File(...)):
@@ -147,6 +149,12 @@ async def summary_by_method(year: int, month: int):
         "ratio": category_result["ratio"],
         "category": category_result["category"],
     }
+
+@app.get("/profiling/summary")
+async def get_profiling_summary(year: int, month: int):
+    if not 1 <= month <= 12:
+        raise HTTPException(status_code=400, detail="Bulan harus antara 1 sampai 12")
+    return await profiling_summary(year, month)
 
 @app.delete("/transaction/{trx_id}")
 async def delete_transaction(trx_id: PydanticObjectId):
