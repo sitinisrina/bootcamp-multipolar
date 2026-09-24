@@ -1,3 +1,5 @@
 fastapi[standard]
 beanie
 python-dotenv
+pandas
+openpyxl
