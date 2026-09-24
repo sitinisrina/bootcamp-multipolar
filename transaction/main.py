@@ -1,4 +1,7 @@
 import os
+import httpx
+
+PROFILING_URL = os.environ.get("PROFILING_URL", "http://localhost:8001")
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -75,10 +78,23 @@ class RequestEditTransaction(BaseModel):
             raise ValueError("Tanggal tidak boleh di masa depan")
         return v
 
+async def check_spending_alert(trx: Transaction) -> dict | None:
+    if trx.trx_type != TrxType.OUTCOME:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            response = await client.get(
+                f"{PROFILING_URL}/profiling/summary",
+                params={"year": trx.date.year, "month": trx.date.month},
+            )
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPError:
+        # Profiling mati/error -> transaksi tetap tersimpan
+        return {"available": False, "message": "Profiling service sedang tidak tersedia"}
 
 from category import classify_spending
 from import_data import read_file, import_dataframe
-from profilling import profiling_summary, check_spending_alert 
 
 @app.on_event("startup")
 async def init_db():
@@ -149,12 +165,6 @@ async def summary_by_method(year: int, month: int):
         "ratio": category_result["ratio"],
         "category": category_result["category"],
     }
-
-@app.get("/profiling/summary")
-async def get_profiling_summary(year: int, month: int):
-    if not 1 <= month <= 12:
-        raise HTTPException(status_code=400, detail="Bulan harus antara 1 sampai 12")
-    return await profiling_summary(year, month)
 
 @app.delete("/transaction/{trx_id}")
 async def delete_transaction(trx_id: PydanticObjectId):
