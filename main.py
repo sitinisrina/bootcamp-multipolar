@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from datetime import datetime, date as DateType
 from beanie import Document, init_beanie, PydanticObjectId
@@ -78,6 +78,7 @@ class RequestEditTransaction(BaseModel):
 
 
 from category import classify_spending
+from import_data import read_file, import_dataframe
 
 @app.on_event("startup")
 async def init_db():
@@ -102,6 +103,16 @@ async def add_transaction(request_body: RequestNewTransaction):
     await trx.insert()
     return trx
 
+@app.post("/transaction/import")
+async def import_transaction(file: UploadFile = File(...)):
+    content = await file.read()
+    try:
+        df = read_file(file.filename, content)
+        result = await import_dataframe(df)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return result
 
 @app.get("/transaction")
 async def get_transaction(start_date: datetime, end_date: datetime):
