@@ -99,36 +99,60 @@
         mode: "0700"
 
     # --- Image (exact version) ---
+    - name: Check if MongoDB image is already present
+      ansible.builtin.command:
+        argv: [podman, image, exists, "{{ mongo_image }}"]
+      register: mongo_image_check
+      changed_when: false
+      failed_when: mongo_image_check.rc not in [0, 1]
+
     - name: Pull MongoDB image (exact version)
-      containers.podman.podman_image:
-        name: "{{ mongo_image }}"
+      ansible.builtin.command:
+        argv: [podman, pull, "{{ mongo_image }}"]
+      when: mongo_image_check.rc == 1
 
     # --- Container ---
-    - name: Run MongoDB container
-      containers.podman.podman_container:
-        name: "{{ mongo_container_name }}"
-        image: "{{ mongo_image }}"
-        state: started
-        restart_policy: always
-        memory: "{{ mongo_memory_limit }}"
-        ports:
+    - name: Check if MongoDB container already exists
+      ansible.builtin.command:
+        argv: [podman, container, exists, "{{ mongo_container_name }}"]
+      register: mongo_container_check
+      changed_when: false
+      failed_when: mongo_container_check.rc not in [0, 1]
+
+    - name: Create and start MongoDB container
+      ansible.builtin.command:
+        argv:
+          - podman
+          - run
+          - --detach
+          - --name
+          - "{{ mongo_container_name }}"
+          - --restart
+          - always
+          - --memory
+          - "{{ mongo_memory_limit }}"
+          - --publish
           - "{{ mongo_port }}:27017"
-        volumes:
+          - --volume
           - "{{ mongo_data_dir }}:/data/db:Z"
-        env:
-          MONGO_INITDB_ROOT_USERNAME: "{{ mongo_root_username }}"
-          MONGO_INITDB_ROOT_PASSWORD: "{{ mongo_root_password }}"
-        command:
+          - --env
+          - "MONGO_INITDB_ROOT_USERNAME={{ mongo_root_username }}"
+          - --env
+          - "MONGO_INITDB_ROOT_PASSWORD={{ mongo_root_password }}"
+          - "{{ mongo_image }}"
           - mongod
           - --wiredTigerCacheSizeGB
           - "{{ mongo_cache_size_gb }}"
+      when: mongo_container_check.rc == 1
       no_log: true
 
-    - name: Enable podman-restart so the container starts after VM reboot
-      ansible.builtin.systemd_service:
-        name: podman-restart
-        enabled: true
+    - name: Ensure MongoDB container is running
+      ansible.builtin.command:
+        argv: [podman, start, "{{ mongo_container_name }}"]
+      when: mongo_container_check.rc == 0
+      changed_when: false
 
+      
     # --- Tunggu MongoDB siap ---
     - name: Wait for MongoDB port to open
       ansible.builtin.wait_for:
